@@ -114,22 +114,17 @@ outputs:
               owner: mysql:mysql
               optional: true
       docker_config:
-        # Kolla_bootstrap runs before permissions set by kolla_config
-        step_1:
-          mysql_init_logs:
-            image: &mysql_image {get_param: DockerMysqlImage}
-            privileged: false
-            user: root
-            volumes:
-              - /var/log/containers/mysql:/var/log/mariadb
-            command: ['/bin/bash', '-c', 'chown -R mysql:mysql /var/log/mariadb']
         step_2:
-          mysql_bootstrap:
+          mysql:
             detach: false
-            image: *mysql_image
+            image: "tripleoupstream/tripleo-k8s-mariadb:latest"
             net: host
-            # Kolla bootstraps aren't idempotent, explicitly checking if bootstrap was done
-            command: ['bash', '-c', 'test -e /var/lib/mysql/mysql || kolla_start']
+            user: root
+            command:
+              - provision
+              - -e
+              # NOTE(flaper87): We should really find a better way to login to k8s/openshift
+              - '{"config_file": "/opt/apb/.kube/config", "kube_context": "openstack/127-0-0-1:8443/developer", "coe_host": "https://127.0.0.1:8443/"}']
             volumes: &mysql_volumes
               list_concat:
               -
@@ -139,9 +134,11 @@ outputs:
                 - /etc/hosts:/etc/hosts:ro
                 - /var/lib/mysql:/var/lib/mysql
                 - /var/log/containers/mysql:/var/log/mariadb
+                - /root/kube:/opt/apb/.kube
+                - /etc/puppet:/etc/puppet
               - if:
                 - internal_tls_enabled
-                - 
+                -
                   - list_join:
                     - ':'
                     - - {get_param: InternalTLSCAFile}
@@ -149,55 +146,15 @@ outputs:
                       - 'ro'
                   - /etc/pki/tls/certs/mysql.crt:/var/lib/kolla/config_files/src-tls/etc/pki/tls/certs/mysql.crt:ro
                   - /etc/pki/tls/private/mysql.key:/var/lib/kolla/config_files/src-tls/etc/pki/tls/private/mysql.key:ro
-                - null 
+                - null
             environment:
               - KOLLA_CONFIG_STRATEGY=COPY_ALWAYS
               - KOLLA_BOOTSTRAP=True
               # NOTE(mandre) skip wsrep cluster status check
               - KOLLA_KUBERNETES=True
-              -
-                list_join:
-                  - '='
-                  - - 'DB_ROOT_PASSWORD'
-                    -
-                      yaql:
-                        expression: $.data.passwords.where($ != '').first()
-                        data:
-                          passwords:
-                            - {get_param: MysqlRootPassword}
-                            - {get_param: [DefaultPasswords, mysql_root_password]}
-          mysql:
-            start_order: 2
-            image: *mysql_image
-            restart: always
-            net: host
-            volumes: *mysql_volumes
-            environment:
-              - KOLLA_CONFIG_STRATEGY=COPY_ALWAYS
-      docker_puppet_tasks:
-        # MySQL database initialization occurs only on single node
-        step_2:
-          config_volume: 'mysql_init_tasks'
-          puppet_tags: 'mysql_database,mysql_grant,mysql_user'
-          step_config: 'include ::tripleo::profile::base::database::mysql'
-          config_image: *mysql_config_image
-          volumes:
-            list_concat:
-            -
-              - /var/lib/mysql:/var/lib/mysql/:ro
-              - /var/log/containers/mysql:/var/log/mariadb
-              - /var/lib/config-data/mysql/root:/root:ro #provides .my.cnf
-            - if:
-              - internal_tls_enabled
-              - 
-                - list_join:
-                  - ':'
-                  - - {get_param: InternalTLSCAFile}
-                    - {get_param: InternalTLSCAFile}
-                    - 'ro'
-                - /etc/pki/tls/certs/mysql.crt:/var/lib/kolla/config_files/src-tls/etc/pki/tls/certs/mysql.crt:ro
-                - /etc/pki/tls/private/mysql.key:/var/lib/kolla/config_files/src-tls/etc/pki/tls/private/mysql.key:ro
-              - null 
+              - OPENSHIFT_TARGET=https://38.145.33.131:8443
+              - OPENSHIFT_USER=developer
+              - OPENSHIFT_PASS=developer
       metadata_settings:
         get_attr: [MysqlPuppetBase, role_data, metadata_settings]
       host_prep_tasks:
