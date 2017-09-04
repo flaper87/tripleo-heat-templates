@@ -230,6 +230,15 @@ resources:
           expression: coalesce($.data.role_data, []).where($ != null).select($.get('kolla_config')).where($ != null).reduce($1.mergeWith($2), {})
           data: {role_data: {get_attr: [ServiceChain, role_data]}}
 
+  ApbsConfig:
+    type: OS::Heat::Value
+    properties:
+      type: json
+      value:
+        yaql:
+          expression: coalesce($.data.role_data, []).where($ != null).select($.get('apbs_config')).where($ != null).reduce($1.mergeWith($2), {})
+          data: {role_data: {get_attr: [ServiceChain, role_data]}}
+
   DockerPuppetTasks:
     type: OS::Heat::Value
     properties:
@@ -273,3 +282,4 @@ outputs:
       docker_config: {get_attr: [DockerConfig, value]}
       docker_puppet_tasks: {get_attr: [DockerPuppetTasks, value]}
       host_prep_tasks: {get_attr: [HostPrepTasks, value]}
+      apbs_config: {get_attr: [ApbsConfig, value]}
