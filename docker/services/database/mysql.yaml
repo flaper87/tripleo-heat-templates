@@ -137,7 +137,7 @@ outputs:
             command:
               - provision
               - -e
-              - "@/var/lib/tripleo-config/apbs/mysql.yml" 
+              - "@/var/lib/tripleo-config/apbs/mysql.yml"
             volumes: &mysql_volumes
               list_concat:
               -
@@ -165,10 +165,6 @@ outputs:
                   - /etc/pki/tls/private/mysql.key:/var/lib/kolla/config_files/src-tls/etc/pki/tls/private/mysql.key:ro
                 - null
             environment:
-              - KOLLA_CONFIG_STRATEGY=COPY_ALWAYS
-              - KOLLA_BOOTSTRAP=True
-              # NOTE(mandre) skip wsrep cluster status check
-              - KOLLA_KUBERNETES=True
               - OPENSHIFT_TARGET=https://38.145.33.131:8443
               - OPENSHIFT_USER=developer
               - OPENSHIFT_PASS=developer

@@ -64,6 +64,12 @@ outputs:
           # Syslog socket
           - /dev/log:/dev/log
           - /etc/ssh/ssh_known_hosts:/etc/ssh/ssh_known_hosts:ro
+          # NOTE(flaper87): The kube/config file should be created by
+          # tripleo. Alternatively, we should just pass a token to
+          # the APB.
+          - /tmp/kube:/opt/apb/.kube
+          - /etc/puppet:/etc/puppet
+          - /var/lib/tripleo-config/apbs:/var/lib/tripleo-config/apbs/
         - if:
           - internal_tls_enabled
           - - list_join:

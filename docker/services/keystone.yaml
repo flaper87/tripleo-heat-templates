@@ -94,44 +94,25 @@ outputs:
         puppet_tags: keystone_config
         step_config: *step_config
         config_image: &keystone_config_image {get_param: DockerKeystoneConfigImage}
-      kolla_config:
-        /var/lib/kolla/config_files/keystone.json:
-          command: /usr/sbin/httpd -DFOREGROUND
-          config_files:
-            - source: "/var/lib/kolla/config_files/src/*"
-              dest: "/"
-              merge: true
-              preserve_properties: true
-        /var/lib/kolla/config_files/keystone_cron.json:
-          # FIXME(dprince): this is unused ATM because Kolla hardcodes the
-          # args for the keystone container to -DFOREGROUND
-          command: /usr/sbin/crond -n
-          config_files:
-            - source: "/var/lib/kolla/config_files/src/*"
-              dest: "/"
-              merge: true
-              preserve_properties: true
-          permissions:
-            - path: /var/log/keystone
-              owner: keystone:keystone
-              recurse: true
+      apbs_config:
+        keystone:
+          # NOTE(flaper87): We should really find a better way to login to k8s/openshift
+          coe_host: "https://38.145.33.131:8443/"
+          config_files: "/opt/apb/.kube/config"
+          kube_context: "openstack/38-145-33-131:8443/developer"
+          hiera_data_file: '/etc/puppet/hieradata/service_configs.json'
       docker_config:
-        # Kolla_bootstrap/db sync runs before permissions set by kolla_config
-        step_2:
-          keystone_init_log:
-            image: &keystone_image {get_param: DockerKeystoneImage}
-            user: root
-            command: ['/bin/bash', '-c', 'chown -R keystone:keystone /var/log/keystone']
-            volumes:
-              - /var/log/containers/keystone:/var/log/keystone
-              - /var/log/containers/httpd/keystone:/var/log/httpd
         step_3:
-          keystone_db_sync:
-            image: *keystone_image
+          keystone:
+            image: "tripleoupstream/tripleo-k8s-keystone:latest"
             net: host
             user: root
             privileged: false
             detach: false
+            command:
+              - provision
+              - -e
+              - "@/var/lib/tripleo-config/apbs/keystone.yml"
             volumes: &keystone_volumes
               list_concat:
                 - {get_attr: [ContainersCommon, volumes]}
@@ -151,44 +132,9 @@ outputs:
                       - /etc/pki/tls/private/httpd:/etc/pki/tls/private/httpd:ro
                       - ''
             environment:
-              - KOLLA_BOOTSTRAP=True
-              - KOLLA_CONFIG_STRATEGY=COPY_ALWAYS
-            command: ['/usr/bin/bootstrap_host_exec', 'keystone', '/usr/local/bin/kolla_start']
-          keystone:
-            start_order: 2
-            image: *keystone_image
-            net: host
-            privileged: false
-            restart: always
-            volumes: *keystone_volumes
-            environment:
-              - KOLLA_CONFIG_STRATEGY=COPY_ALWAYS
-          keystone_bootstrap:
-            start_order: 3
-            action: exec
-            user: root
-            command:
-              [ 'keystone', '/usr/bin/bootstrap_host_exec', 'keystone' ,'keystone-manage', 'bootstrap', '--bootstrap-password', {get_param: AdminPassword} ]
-          keystone_cron:
-            start_order: 4
-            image: *keystone_image
-            user: root
-            net: host
-            privileged: false
-            restart: always
-            command: ['/bin/bash', '-c', '/usr/local/bin/kolla_set_configs && /usr/sbin/crond -n']
-            healthcheck:
-              test: /bin/true
-            volumes:
-              list_concat:
-                - {get_attr: [ContainersCommon, volumes]}
-                -
-                  - /var/lib/kolla/config_files/keystone_cron.json:/var/lib/kolla/config_files/config.json:ro
-                  - /var/lib/config-data/puppet-generated/keystone/:/var/lib/kolla/config_files/src:ro
-                  - /var/log/containers/keystone:/var/log/keystone
-                  - /var/log/containers/httpd/keystone:/var/log/httpd
-            environment:
-              - KOLLA_CONFIG_STRATEGY=COPY_ALWAYS
+              - OPENSHIFT_TARGET=https://38.145.33.131:8443
+              - OPENSHIFT_USER=developer
+              - OPENSHIFT_PASS=developer
       docker_puppet_tasks:
         # Keystone endpoint creation occurs only on single node
         step_3:
