@@ -91,30 +91,34 @@ outputs:
 #        step_config: *step_config
 #        config_image: &mysql_config_image {get_param: DockerMysqlConfigImage}
       kolla_config:
-        /var/lib/kolla/config_files/mysql.json:
-          command: /usr/bin/mysqld_safe
-          config_files:
-            - source: "/var/lib/kolla/config_files/src/*"
-              dest: "/"
-              merge: true
-              preserve_properties: true
-            - source: "/var/lib/kolla/config_files/src-tls/*"
-              dest: "/"
-              merge: true
-              preserve_properties: true
-              optional: true
-          permissions:
-            - path: /var/lib/mysql
-              owner: mysql:mysql
-              recurse: true
-            - path: /etc/pki/tls/certs/mysql.crt
-              owner: mysql:mysql
-              optional: true
-            - path: /etc/pki/tls/private/mysql.key
-              owner: mysql:mysql
-              optional: true
+#        /var/lib/kolla/config_files/mysql.json:
+#          command: /usr/bin/mysqld_safe
+#          config_files:
+#            - source: "/var/lib/kolla/config_files/src/*"
+#              dest: "/"
+#              merge: true
+#              preserve_properties: true
+#            - source: "/var/lib/kolla/config_files/src-tls/*"
+#              dest: "/"
+#              merge: true
+#              preserve_properties: true
+#              optional: true
+#          permissions:
+#            - path: /var/lib/mysql
+#              owner: mysql:mysql
+#              recurse: true
+#            - path: /etc/pki/tls/certs/mysql.crt
+#              owner: mysql:mysql
+#              optional: true
+#            - path: /etc/pki/tls/private/mysql.key
+#              owner: mysql:mysql
+#              optional: true
       apbs_config:
         mysql:
+          # NOTE(flaper87): We should really find a better way to login to k8s/openshift
+          coe_host: "https://38.145.33.131:8443/"
+          config_files: "/opt/apb/.kube/config"
+          kube_context: "openstack/38-145-33-131:8443/developer"
           mysql_config:
             root_password:
               yaql:
@@ -133,8 +137,7 @@ outputs:
             command:
               - provision
               - -e
-              # NOTE(flaper87): We should really find a better way to login to k8s/openshift
-              - '{"config_file": "/opt/apb/.kube/config", "kube_context": "openstack/127-0-0-1:8443/developer", "coe_host": "https://127.0.0.1:8443/"}']
+              - "@/var/lib/tripleo-config/apbs/mysql.yml" 
             volumes: &mysql_volumes
               list_concat:
               -
@@ -149,6 +152,7 @@ outputs:
                 # the APB.
                 - /tmp/kube:/opt/apb/.kube
                 - /etc/puppet:/etc/puppet
+                - /var/lib/tripleo-config/apbs:/var/lib/tripleo-config/apbs/
               - if:
                 - internal_tls_enabled
                 -
