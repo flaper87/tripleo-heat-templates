@@ -16,3 +16,4 @@
   ServicesDefault:
     - OS::TripleO::Services::MySQL
     - OS::TripleO::Services::Keystone
+    - OS::TripleO::Services::GlanceApi

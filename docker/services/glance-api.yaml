@@ -91,7 +91,7 @@ outputs:
         step_config: *step_config
         config_image: {get_param: DockerGlanceApiConfigImage}
       apbs_config:
-        keystone:
+        glance:
           # NOTE(flaper87): We should really find a better way to login to k8s/openshift
           coe_host: "https://38.145.33.131:8443/"
           config_files: "/opt/apb/.kube/config"
@@ -101,10 +101,9 @@ outputs:
         # Kolla_bootstrap/db_sync runs before permissions set by kolla_config
         step_3:
           glance:
-            image: "tripleoupstream/tripleo-k8s-keystone:latest"
+            image: "tripleoupstream/tripleo-k8s-glance:latest"
             net: host
             privileged: false
-            detach: false
             user: root
             command:
               - provision
