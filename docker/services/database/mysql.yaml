@@ -119,14 +119,14 @@ outputs:
           coe_host: "https://38.145.33.131:8443/"
           config_files: "/opt/apb/.kube/config"
           kube_context: "openstack/38-145-33-131:8443/developer"
-          mysql_config:
-            root_password:
-              yaql:
-                expression: $.data.passwords.where($ != '').first()
-                data:
-                  passwords:
-                    - {get_param: MysqlRootPassword}
-                    - {get_param: [DefaultPasswords, mysql_root_password]}
+          mariadb_config:
+            root_password: weakpassword
+              #yaql:
+              #  expression: $.data.passwords.where($ != '').first()
+              #  data:
+              #    passwords:
+              #      - {get_param: MysqlRootPassword}
+              #      - {get_param: [DefaultPasswords, mysql_root_password]}
       docker_config:
         step_2:
           mysql:
