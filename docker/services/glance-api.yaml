@@ -90,43 +90,26 @@ outputs:
         puppet_tags: glance_api_config,glance_api_paste_ini,glance_swift_config,glance_cache_config
         step_config: *step_config
         config_image: {get_param: DockerGlanceApiConfigImage}
-      kolla_config:
-        /var/lib/kolla/config_files/glance_api.json:
-          command: /usr/bin/glance-api --config-file /usr/share/glance/glance-api-dist.conf --config-file /etc/glance/glance-api.conf
-          config_files:
-            - source: "/var/lib/kolla/config_files/src/*"
-              dest: "/"
-              merge: true
-              preserve_properties: true
-            - source: "/var/lib/kolla/config_files/src-ceph/"
-              dest: "/etc/ceph/"
-              merge: true
-              preserve_properties: true
-        /var/lib/kolla/config_files/glance_api_tls_proxy.json:
-          command: /usr/sbin/httpd -DFOREGROUND
-          config_files:
-            - source: "/var/lib/kolla/config_files/src/*"
-              dest: "/"
-              merge: true
-              preserve_properties: true
+      apbs_config:
+        keystone:
+          # NOTE(flaper87): We should really find a better way to login to k8s/openshift
+          coe_host: "https://38.145.33.131:8443/"
+          config_files: "/opt/apb/.kube/config"
+          kube_context: "openstack/38-145-33-131:8443/developer"
+          hiera_data_file: '/etc/puppet/hieradata/service_configs.json'
       docker_config:
         # Kolla_bootstrap/db_sync runs before permissions set by kolla_config
-        step_2:
-          glance_init_logs:
-            image: &glance_api_image {get_param: DockerGlanceApiImage}
-            privileged: false
-            user: root
-            volumes:
-              - /var/log/containers/glance:/var/log/glance
-              - /var/log/containers/httpd/glance-api:/var/log/httpd
-            command: ['/bin/bash', '-c', 'chown -R glance:glance /var/log/glance']
         step_3:
-          glance_api_db_sync:
-            image: *glance_api_image
+          glance:
+            image: "tripleoupstream/tripleo-k8s-keystone:latest"
             net: host
             privileged: false
             detach: false
             user: root
+            command:
+              - provision
+              - -e
+              - "@/var/lib/tripleo-config/apbs/keystone.yml"
             volumes: &glance_volumes
               list_concat:
                 - {get_attr: [ContainersCommon, volumes]}
@@ -142,39 +125,9 @@ outputs:
                       - /var/lib/glance:/var/lib/glance
                       - ''
             environment:
-              - KOLLA_BOOTSTRAP=True
-              - KOLLA_CONFIG_STRATEGY=COPY_ALWAYS
-            command: "/usr/bin/bootstrap_host_exec glance_api su glance -s /bin/bash -c '/usr/local/bin/kolla_start'"
-        step_4:
-          map_merge:
-            - glance_api:
-                start_order: 2
-                image: *glance_api_image
-                net: host
-                privileged: false
-                restart: always
-                volumes: *glance_volumes
-                environment:
-                  - KOLLA_CONFIG_STRATEGY=COPY_ALWAYS
-            - if:
-                - internal_tls_enabled
-                - glance_api_tls_proxy:
-                    start_order: 2
-                    image: *glance_api_image
-                    net: host
-                    user: root
-                    restart: always
-                    volumes:
-                      list_concat:
-                        - {get_attr: [ContainersCommon, volumes]}
-                        -
-                          - /var/lib/kolla/config_files/glance_api_tls_proxy.json:/var/lib/kolla/config_files/config.json:ro
-                          - /var/lib/config-data/puppet-generated/glance_api/:/var/lib/kolla/config_files/src:ro
-                          - /etc/pki/tls/certs/httpd:/etc/pki/tls/certs/httpd:ro
-                          - /etc/pki/tls/private/httpd:/etc/pki/tls/private/httpd:ro
-                    environment:
-                      - KOLLA_CONFIG_STRATEGY=COPY_ALWAYS
-                - {}
+              - OPENSHIFT_TARGET=https://38.145.33.131:8443
+              - OPENSHIFT_USER=developer
+              - OPENSHIFT_PASS=developer
       host_prep_tasks:
         - name: create persistent logs directory
           file:
